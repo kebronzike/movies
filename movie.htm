@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Movie Tracker</title>
+<style>
+    body {
+        font-family: Arial, sans-serif;
+        margin: 20px;
+    }
+    .login-container {
+        max-width: 300px;
+        margin: 0 auto;
+    }
+    .main-container {
+        display: none;
+    }
+    .logout-button {
+        margin-top: 10px;
+    }
+    .history-log {
+        margin-top: 20px;
+    }
+    table {
+        border-collapse: collapse;
+        width: 100%;
+    }
+    th, td {
+        border: 1px solid #dddddd;
+        text-align: left;
+        padding: 8px;
+    }
+    th {
+        background-color: #f2f2f2;
+    }
+</style>
+</head>
+<body>
+<div class="login-container">
+    <h2>Login</h2>
+    <label for="username">Username:</label>
+    <input type="text" id="username">
+    <label for="password">Password:</label>
+    <input type="password" id="password">
+    <button onclick="login()">Login</button>
+</div>
+<div class="main-container">
+    <h2>Welcome, <span id="loggedInUser"></span>!</h2>
+    <button class="logout-button" onclick="logout()">Logout</button>
+    <div>
+        <label for="movieName">Movie Name:</label>
+        <input type="text" id="movieName">
+        <label for="rating">Rating (1-10):</label>
+        <input type="number" id="rating" min="1" max="10">
+        <button onclick="addMovie()">Add Movie</button>
+    </div>
+    <div>
+    <label for="filter">Filter:</label>
+    <select id="filter">
+        <option value="none">-- Select Filter --</option>
+        <option value="highest-rated">Highest Rated</option>
+        <option value="lowest-rated">Lowest Rated</option>
+        <option value="year">By Year</option>
+    </select>
+    <input type="number" id="year" placeholder="Year" style="display: none;">
+    <button onclick="applyFilter()">Apply Filter</button>
+</div>
+    <br>
+    <table id="movieTable">
+        <thead>
+            <tr>
+                <th>Movie</th>
+                <th>Date Watched</th>
+                <th>Rating</th>
+                <th>Edit</th>
+                <th>Delete</th>
+            </tr>
+        </thead>
+        <tbody id="movieList">
+        </tbody>
+    </table>
+    <div class="history-log">
+        <h3>History Log</h3>
+        <table id="historyTable">
+            <thead>
+                <tr>
+                    <th>Action</th>
+                    <th>Username</th>
+                    <th>Date & Time</th>
+                </tr>
+            </thead>
+            <tbody id="historyList">
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+    let currentUser = null;
+    let movieRatings = {};
+    let historyLog = [];
+
+    function login() {
+        let username = document.getElementById("username").value;
+        let password = document.getElementById("password").value;
+        // You can add your authentication logic here, for simplicity, I'm assuming a single user with username "admin" and password "password"
+        if (username === "amctuesday" && password === "password") {
+            currentUser = username;
+            document.getElementById("loggedInUser").innerText = currentUser;
+            document.querySelector(".login-container").style.display = "none";
+            document.querySelector(".main-container").style.display = "block";
+        } else {
+            alert("Invalid username or password");
+        }
+    }
+
+    function logout() {
+        currentUser = null;
+        document.getElementById("loggedInUser").innerText = "";
+        document.querySelector(".login-container").style.display = "block";
+        document.querySelector(".main-container").style.display = "none";
+    }
+
+    function addMovie() {
+        let movieName = document.getElementById("movieName").value;
+        let rating = parseInt(document.getElementById("rating").value);
+        let date = new Date();
+        let monthYear = (date.getMonth() + 1) + "-" + date.getFullYear();
+        
+        if (!movieRatings.hasOwnProperty(movieName)) {
+            movieRatings[movieName] = {};
+        }
+        
+        movieRatings[movieName][monthYear] = rating;
+        updateTable();
+        logAction("Added movie '" + movieName + "'", currentUser, date);
+    }
+
+    function editMovie(movie, monthYear) {
+        let newRating = prompt("Enter new rating for " + movie + " (1-10):");
+        if (newRating !== null && newRating !== "") {
+            movieRatings[movie][monthYear] = parseInt(newRating);
+            updateTable();
+            logAction("Edited movie '" + movie + "'", currentUser, new Date());
+        }
+    }
+
+    function deleteMovie(movie, monthYear) {
+        if (confirm("Are you sure you want to delete the movie entry for " + movie + "?")) {
+            delete movieRatings[movie][monthYear];
+            if (Object.keys(movieRatings[movie]).length === 0) {
+                delete movieRatings[movie];
+            }
+            updateTable();
+            logAction("Deleted movie '" + movie + "'", currentUser, new Date());
+        }
+    }
+
+    function updateTable() {
+        let tableBody = document.getElementById("movieList");
+        tableBody.innerHTML = "";
+
+        for (let movie in movieRatings) {
+            for (let monthYear in movieRatings[movie]) {
+                let row = tableBody.insertRow();
+                let cell1 = row.insertCell(0);
+                let cell2 = row.insertCell(1);
+                let cell3 = row.insertCell(2);
+                let cell4 = row.insertCell(3);
+                let cell5 = row.insertCell(4);
+                cell1.innerHTML = movie;
+                cell2.innerHTML = monthYear;
+                cell3.innerHTML = movieRatings[movie][monthYear];
+                cell4.innerHTML = "<button onclick='editMovie(\"" + movie + "\", \"" + monthYear + "\")'>Edit</button>";
+                cell5.innerHTML = "<button onclick='deleteMovie(\"" + movie + "\", \"" + monthYear + "\")'>Delete</button>";
+            }
+        }
+    }
+
+	 function applyFilter() {
+        let filter = document.getElementById("filter").value;
+        let year = parseInt(document.getElementById("year").value);
+        
+        let filteredMovies = {};
+
+        switch (filter) {
+            case "highest-rated":
+                filteredMovies = sortByRating(true);
+                break;
+            case "lowest-rated":
+                filteredMovies = sortByRating(false);
+                break;
+            case "year":
+                if (!isNaN(year)) {
+                    filteredMovies = filterByYear(year);
+                } else {
+                    alert("Please enter a valid year.");
+                }
+                break;
+            default:
+                filteredMovies = movieRatings;
+        }
+
+        movieRatings = filteredMovies;
+        updateTable();
+    }
+
+    function sortByRating(ascending) {
+        let sortedMovies = {};
+        let sortedKeys = Object.keys(movieRatings).sort(function(a, b) {
+            let ratingsA = Object.values(movieRatings[a]);
+            let ratingsB = Object.values(movieRatings[b]);
+            let avgRatingA = ratingsA.reduce((acc, val) => acc + val, 0) / ratingsA.length;
+            let avgRatingB = ratingsB.reduce((acc, val) => acc + val, 0) / ratingsB.length;
+            return ascending ? avgRatingB - avgRatingA : avgRatingA - avgRatingB;
+        });
+        sortedKeys.forEach(function(key) {
+            sortedMovies[key] = movieRatings[key];
+        });
+        return sortedMovies;
+    }
+
+    function filterByYear(year) {
+        let filteredMovies = {};
+        for (let movie in movieRatings) {
+            for (let monthYear in movieRatings[movie]) {
+                let releaseYear = parseInt(monthYear.split("-")[1]);
+                if (releaseYear === year) {
+                    if (!filteredMovies.hasOwnProperty(movie)) {
+                        filteredMovies[movie] = {};
+                    }
+                    filteredMovies[movie][monthYear] = movieRatings[movie][monthYear];
+                }
+            }
+        }
+        return filteredMovies;
+    }
+
+    function logAction(action, user, date) {
+        historyLog.push({ action: action, user: user, date: date });
+        updateHistoryLog();
+    }
+
+    function updateHistoryLog() {
+        let tableBody = document.getElementById("historyList");
+        tableBody.innerHTML = "";
+
+        for (let i = historyLog.length - 1; i >= 0; i--) {
+            let row = tableBody.insertRow();
+            let cell1 = row.insertCell(0);
+            let cell2 = row.insertCell(1);
+            let cell3 = row.insertCell(2);
+            cell1.innerHTML = historyLog[i].action;
+            cell2.innerHTML = historyLog[i].user;
+            cell3.innerHTML = historyLog[i].date.toLocaleString();
+        }
+    }
+</script>
+</body>
+</html>
